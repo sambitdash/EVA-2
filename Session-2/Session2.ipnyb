@@ -1,0 +1,866 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "name": "EVA2-Session2.ipynb",
+      "version": "0.3.2",
+      "provenance": [],
+      "collapsed_sections": []
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "accelerator": "GPU"
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "-nJ7YEw_vyjG",
+        "colab_type": "text"
+      },
+      "source": [
+        "# **Not an ideal network**\n",
+        "# MNIST Recognition with Neural Network"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "syNuvC5cIXLU",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Install Keras APIs"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "kGWv5hBhv2jf",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        },
+        "outputId": "a0b9ab02-15ea-4f20-ac73-fdb4f5f6a9db"
+      },
+      "source": [
+        "# https://keras.io/\n",
+        "# Install the Keras APIs to the Notebook env with Tensorflow Backend.\n",
+        "!pip install -q keras\n",
+        "import keras"
+      ],
+      "execution_count": 1,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Using TensorFlow backend.\n"
+          ],
+          "name": "stderr"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "wmY6CmN9IsHF",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Import Keras Modules as required. \n",
+        "\n",
+        "1. Sequential model is to be chosen. \n",
+        "2. Flatten, Convolution and Numpy utils are the other modules loaded.\n",
+        "3. MNIST handwritten number recognition dataset is imported."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "wnMlDJQKv4VG",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "import numpy as np\n",
+        "\n",
+        "from keras.models import Sequential\n",
+        "from keras.layers import Flatten\n",
+        "from keras.layers import Conv2D\n",
+        "from keras.utils import np_utils\n",
+        "\n",
+        "from keras.datasets import mnist"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "WUzOr8bsJ8RJ",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Creation of Dataset\n",
+        "The dataset is loaded and split as training and test data for training the model and testing its efficacy. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "8CdSu2lMwB9s",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 52
+        },
+        "outputId": "52b95e64-471a-41f5-9703-c15dd5745570"
+      },
+      "source": [
+        "(X_train, y_train), (X_test, y_test) = mnist.load_data()"
+      ],
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Downloading data from https://s3.amazonaws.com/img-datasets/mnist.npz\n",
+            "11493376/11490434 [==============================] - 1s 0us/step\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "3zxtxOYKKgtJ",
+        "colab_type": "text"
+      },
+      "source": [
+        "## View the Dataset\n",
+        "Once loaded, it's a good idea to take a peek at the data to understand the data constituents. `mathplotlib` is used to plot the image data and the first of the training set data is plotted. Dataset has 60000 images for training set of images of size 28 x 28."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "tLaDf0-rwCmj",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 304
+        },
+        "outputId": "f2a61ba7-5a19-4765-cc06-7f9287f3d135"
+      },
+      "source": [
+        "print (X_train.shape)\n",
+        "from matplotlib import pyplot as plt\n",
+        "%matplotlib inline\n",
+        "plt.imshow(X_train[0])"
+      ],
+      "execution_count": 4,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "(60000, 28, 28)\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<matplotlib.image.AxesImage at 0x7f0a9d08ef28>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 4
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "image/png": "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\n",
+            "text/plain": [
+              "<Figure size 432x288 with 1 Axes>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          }
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "z4QWMrBHLhyX",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Right Sizing the Channels\n",
+        "Additional channel count dimension is added so that additional channels created during the convolution can be added to the 4th dimension of the dataset. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "erb11jNwwFwl",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "X_train = X_train.reshape(X_train.shape[0], 28, 28,1)\n",
+        "X_test = X_test.reshape(X_test.shape[0], 28, 28,1)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "OzspA2_bMBxZ",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Modifying Image Data Format\n",
+        "Image data format modified from UInt8 to float32 for floating point convolution operations. Based on the GPU used one can decide to keep to integer vs. floating point operations."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "RLK4YDoRwHet",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "X_train = X_train.astype('float32')\n",
+        "X_test = X_test.astype('float32')\n",
+        "X_train /= 255\n",
+        "X_test /= 255"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "fk4xyMzfMzOR",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Define the Output"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "JNKLOmhlwJQl",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        },
+        "outputId": "14b5d290-2ffe-48bb-c999-dc8cd32f8e52"
+      },
+      "source": [
+        "y_train[:10]"
+      ],
+      "execution_count": 8,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([5, 0, 4, 1, 9, 2, 1, 3, 1, 4], dtype=uint8)"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 8
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "YusMJguiwKsM",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "# Convert 1-dimensional class arrays to 10-dimensional class matrices\n",
+        "Y_train = np_utils.to_categorical(y_train, 10)\n",
+        "Y_test = np_utils.to_categorical(y_test, 10)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "7QLQ2eXffJTY",
+        "colab_type": "text"
+      },
+      "source": [
+        "## One Hot Vector Notation\n",
+        "Output is to be presented as a one hot vector notation which shows match or alignment of output to one specific category and not alignd to others. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "upxc99AswMW0",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 193
+        },
+        "outputId": "93a72015-ee13-4169-c107-e1c41023d158"
+      },
+      "source": [
+        "Y_train[:10]\n"
+      ],
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "array([[0., 0., 0., 0., 0., 1., 0., 0., 0., 0.],\n",
+              "       [1., 0., 0., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 1., 0., 0., 0., 0., 0.],\n",
+              "       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 0., 0., 0., 0., 0., 1.],\n",
+              "       [0., 0., 1., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 1., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 1., 0., 0., 0., 0., 0., 0., 0., 0.],\n",
+              "       [0., 0., 0., 0., 1., 0., 0., 0., 0., 0.]], dtype=float32)"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 10
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "irTVUE47wNwr",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 527
+        },
+        "outputId": "65927658-2b01-4cd8-8946-f6c78b7f2e69"
+      },
+      "source": [
+        "from keras.layers import Activation, MaxPooling2D\n",
+        "\n",
+        "model = Sequential() \n",
+        "model.add(Conv2D(32,  (3, 3), activation='relu', input_shape=(28,28,1)))  # RF:  3 x  3       Input: 28 x 28 x   1\n",
+        "model.add(Conv2D(64,  (3, 3), activation='relu'))                         # RF:  5 x  5       Input: 26 x 26 x  32\n",
+        "model.add(Conv2D(128, (3, 3), activation='relu'))                         # RF:  7 x  7       Input: 24 x 24 x  64\n",
+        "\n",
+        "model.add(MaxPooling2D(pool_size=(2, 2)))                                 # RF:  7 x  7       Input: 22 x 22 x 128\n",
+        "\n",
+        "model.add(Conv2D(256,  (3, 3), activation='relu'))                        # RF:  3 x 3  Effective:11 x 11     Input: 11 x 11 x 128\n",
+        "model.add(Conv2D(512,  (3, 3), activation='relu'))                        # RF:  5 x 5  Effective:15 x 15     Input:  9 x  9 x 256\n",
+        "model.add(Conv2D(1024, (3, 3), activation='relu'))                        # RF:  7 x 7  Effective:19 x 19     Input:  7 x  7 x 512\n",
+        "model.add(Conv2D(2048, (3, 3), activation='relu'))                        # RF:  9 x 9  Effective:23 x 23     Input:  5 x  5 x1024\n",
+        "model.add(Conv2D(10,   (3, 3), activation='relu'))                        # RF: 11 x 11 Effective:27 x 27     Input:  3 x  3 x2048\n",
+        "\n",
+        "model.add(Flatten())\n",
+        "model.add(Activation('softmax'))\n",
+        "\n",
+        "model.summary()"
+      ],
+      "execution_count": 19,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "_________________________________________________________________\n",
+            "Layer (type)                 Output Shape              Param #   \n",
+            "=================================================================\n",
+            "conv2d_41 (Conv2D)           (None, 26, 26, 32)        320       \n",
+            "_________________________________________________________________\n",
+            "conv2d_42 (Conv2D)           (None, 24, 24, 64)        18496     \n",
+            "_________________________________________________________________\n",
+            "conv2d_43 (Conv2D)           (None, 22, 22, 128)       73856     \n",
+            "_________________________________________________________________\n",
+            "max_pooling2d_6 (MaxPooling2 (None, 11, 11, 128)       0         \n",
+            "_________________________________________________________________\n",
+            "conv2d_44 (Conv2D)           (None, 9, 9, 256)         295168    \n",
+            "_________________________________________________________________\n",
+            "conv2d_45 (Conv2D)           (None, 7, 7, 512)         1180160   \n",
+            "_________________________________________________________________\n",
+            "conv2d_46 (Conv2D)           (None, 5, 5, 1024)        4719616   \n",
+            "_________________________________________________________________\n",
+            "conv2d_47 (Conv2D)           (None, 3, 3, 2048)        18876416  \n",
+            "_________________________________________________________________\n",
+            "conv2d_48 (Conv2D)           (None, 1, 1, 10)          184330    \n",
+            "_________________________________________________________________\n",
+            "flatten_6 (Flatten)          (None, 10)                0         \n",
+            "_________________________________________________________________\n",
+            "activation_6 (Activation)    (None, 10)                0         \n",
+            "=================================================================\n",
+            "Total params: 25,348,362\n",
+            "Trainable params: 25,348,362\n",
+            "Non-trainable params: 0\n",
+            "_________________________________________________________________\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "Cafu0Mmp9_f8",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Compile the Model\n",
+        "The loss function and the optimizer are provided here. Loss function categorical cross entropy is an estimate of how close is a value closest to a specific category and different from all others. \n",
+        "\n",
+        "$$ - \\sum_{c = 1}^{M} y_{o,c}log(p_{o,c})$$\n",
+        "\n",
+        "- M - Number of Categories\n",
+        "- c  - catagory index\n",
+        "- o - Observed category\n",
+        "- p - predicted probability of the observation to class c\n",
+        "\n",
+        "ADAM is an optimizer like stochastic gradient that also include second order derivatives in computing convergence direction.\n",
+        "\n",
+        "Metric to stop computation is set to accuracy. It can also be set to loss function below certain values.\n"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "VYZOpRb6yG7_",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.compile(loss='categorical_crossentropy',\n",
+        "             optimizer='adam',\n",
+        "             metrics=['accuracy'])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "5xQLP8JlAj3-",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Training\n",
+        "\n",
+        "The training is carried out with model.fit method which takes the training input and observed output. The batch size at which the gradient vectors need to be updated. The number if epochs the test needs to be run with the complete training dataset. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "5O248wVQyMft",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 530
+        },
+        "outputId": "ac7d9053-c89f-4dd3-c151-c0c6a7ca0a8d"
+      },
+      "source": [
+        "model.fit(X_train, Y_train, batch_size=32, nb_epoch=10, verbose=1)"
+      ],
+      "execution_count": 22,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "/usr/local/lib/python3.6/dist-packages/ipykernel_launcher.py:1: UserWarning: The `nb_epoch` argument in `fit` has been renamed `epochs`.\n",
+            "  \"\"\"Entry point for launching an IPython kernel.\n",
+            "W0725 08:55:47.318355 139684822280064 deprecation.py:323] From /usr/local/lib/python3.6/dist-packages/tensorflow/python/ops/math_grad.py:1250: add_dispatch_support.<locals>.wrapper (from tensorflow.python.ops.array_ops) is deprecated and will be removed in a future version.\n",
+            "Instructions for updating:\n",
+            "Use tf.where in 2.0, which has the same broadcast rule as np.where\n",
+            "W0725 08:55:47.423218 139684822280064 deprecation_wrapper.py:119] From /usr/local/lib/python3.6/dist-packages/keras/backend/tensorflow_backend.py:986: The name tf.assign_add is deprecated. Please use tf.compat.v1.assign_add instead.\n",
+            "\n"
+          ],
+          "name": "stderr"
+        },
+        {
+          "output_type": "stream",
+          "text": [
+            "Epoch 1/10\n",
+            "60000/60000 [==============================] - 225s 4ms/step - loss: 2.3026 - acc: 0.0988\n",
+            "Epoch 2/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 3/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 4/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 5/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 6/10\n",
+            "60000/60000 [==============================] - 217s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 7/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 8/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 9/10\n",
+            "60000/60000 [==============================] - 219s 4ms/step - loss: 2.3026 - acc: 0.0987\n",
+            "Epoch 10/10\n",
+            "60000/60000 [==============================] - 218s 4ms/step - loss: 2.3026 - acc: 0.0987\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<keras.callbacks.History at 0x7f0a99bfc208>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 22
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "v2vHGhQlBHzG",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Evaluation\n",
+        "\n",
+        "Training once completed, the test data is provided to check how good is the training to explain the dataset. In this case the score is low showing the model is not a good fit to the data. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "Sst4KneiyOL5",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "score = model.evaluate(X_test, Y_test, verbose=0)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "CfJiXOKsyj4y",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 34
+        },
+        "outputId": "9ba0b973-363a-4d06-a517-c774439caa43"
+      },
+      "source": [
+        "print(score)"
+      ],
+      "execution_count": 24,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[2.3025851249694824, 0.098]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "ub-5yEFKBder",
+        "colab_type": "text"
+      },
+      "source": [
+        "## Result Prediction\n",
+        "Now the model is already trained an equivalent test input is provided to compare the values. As can be seen the predicted output is no close to the expected test data as the accuracy of training was not good. "
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "hwLSXt7nyn_0",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "y_pred = model.predict(X_test)"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "WWKKoOKwyppN",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 193
+        },
+        "outputId": "710b15eb-206f-46dc-edf6-7b630e90fcc1"
+      },
+      "source": [
+        "print(y_pred[:9])\n",
+        "print(y_test[:9])"
+      ],
+      "execution_count": 26,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[[0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]\n",
+            " [0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1 0.1]]\n",
+            "[7 2 1 0 4 1 4 9 5]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "9th6Wam6a_WW",
+        "colab_type": "text"
+      },
+      "source": [
+        "# Conclusion\n",
+        "\n",
+        "The designed network takes large amount of time to run per batch and does not converge to high accuracy output. Here are the reasons according to me that may be leading to this behavior:\n",
+        "\n",
+        "1. At 28 x 28 image with 60,000 images the data input has only 47million input values in dataset. We are trying extract 25 million parameters. This makes the design highly under constrained. It's almost finding a parameters for every 2 pixels. \n",
+        "2. The number of channels are growing exponentially from one layer to the other. The channels are inherently used to extract features. Initially for extracting low level details like edges like horizontal, vertical, angular etc. Subsequent, channels try to correlate the edges and joins and create common features in the images. \n",
+        "Final stage assign the common features to specific of the 10 final channles mapping to each specific of the features.\n",
+        "3. Post maxpooling the number of channels should be slowly reduced to 10. Exploration on the low level features. Extraction of some of the high level features and consolidation of some of the low level features to the high level features. \n",
+        "4. Lastly, model is not made robust with certain level of image distortion or possibilities of network overtraining to the dataset. Dropouts may help in such cases. \n",
+        "5. Learning rate is constant. Making adaptive can add significantly to convergence towards the later parts of iterations.\n",
+        "\n",
+        "Slight realignment improves the code performance to 97.7%."
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "cNYCQjhNgRB0",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 422
+        },
+        "outputId": "f724b2ff-8aeb-454c-e404-73562722b936"
+      },
+      "source": [
+        "from keras.layers import Activation, MaxPooling2D\n",
+        "\n",
+        "model = Sequential() \n",
+        "model.add(Conv2D(32,  (3, 3), activation='relu', input_shape=(28,28,1)))  \n",
+        "model.add(Conv2D(64,  (3, 3), activation='relu')) \n",
+        "model.add(MaxPooling2D(pool_size=(2, 2)))\n",
+        "model.add(Conv2D(10,  (3, 3), activation='relu'))  \n",
+        "model.add(MaxPooling2D(pool_size=(2, 2)))\n",
+        "model.add(Conv2D(10,  (3, 3), activation='relu'))\n",
+        "model.add(Conv2D(10,  (3, 3), activation='softmax'))\n",
+        "model.add(Flatten())\n",
+        "model.summary()"
+      ],
+      "execution_count": 201,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "_________________________________________________________________\n",
+            "Layer (type)                 Output Shape              Param #   \n",
+            "=================================================================\n",
+            "conv2d_409 (Conv2D)          (None, 26, 26, 32)        320       \n",
+            "_________________________________________________________________\n",
+            "conv2d_410 (Conv2D)          (None, 24, 24, 64)        18496     \n",
+            "_________________________________________________________________\n",
+            "max_pooling2d_147 (MaxPoolin (None, 12, 12, 64)        0         \n",
+            "_________________________________________________________________\n",
+            "conv2d_411 (Conv2D)          (None, 10, 10, 10)        5770      \n",
+            "_________________________________________________________________\n",
+            "max_pooling2d_148 (MaxPoolin (None, 5, 5, 10)          0         \n",
+            "_________________________________________________________________\n",
+            "conv2d_412 (Conv2D)          (None, 3, 3, 10)          910       \n",
+            "_________________________________________________________________\n",
+            "conv2d_413 (Conv2D)          (None, 1, 1, 10)          910       \n",
+            "_________________________________________________________________\n",
+            "flatten_64 (Flatten)         (None, 10)                0         \n",
+            "=================================================================\n",
+            "Total params: 26,406\n",
+            "Trainable params: 26,406\n",
+            "Non-trainable params: 0\n",
+            "_________________________________________________________________\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "MXg8jxIUgrVl",
+        "colab_type": "code",
+        "colab": {}
+      },
+      "source": [
+        "model.compile(loss='categorical_crossentropy',\n",
+        "             optimizer='adam',\n",
+        "             metrics=['accuracy'])"
+      ],
+      "execution_count": 0,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "CjPFlAAOg0w6",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 386
+        },
+        "outputId": "b088e8c7-ff46-4006-e76a-71f082236bfc"
+      },
+      "source": [
+        "model.fit(X_train, Y_train, batch_size=32, epochs=10, verbose=1)"
+      ],
+      "execution_count": 203,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "Epoch 1/10\n",
+            "60000/60000 [==============================] - 31s 513us/step - loss: 0.6346 - acc: 0.7888\n",
+            "Epoch 2/10\n",
+            "60000/60000 [==============================] - 26s 429us/step - loss: 0.2324 - acc: 0.9290\n",
+            "Epoch 3/10\n",
+            "60000/60000 [==============================] - 25s 419us/step - loss: 0.1718 - acc: 0.9471\n",
+            "Epoch 4/10\n",
+            "60000/60000 [==============================] - 26s 427us/step - loss: 0.1459 - acc: 0.9548\n",
+            "Epoch 5/10\n",
+            "60000/60000 [==============================] - 26s 428us/step - loss: 0.1272 - acc: 0.9605\n",
+            "Epoch 6/10\n",
+            "60000/60000 [==============================] - 25s 418us/step - loss: 0.1141 - acc: 0.9645\n",
+            "Epoch 7/10\n",
+            "60000/60000 [==============================] - 26s 432us/step - loss: 0.1036 - acc: 0.9672\n",
+            "Epoch 8/10\n",
+            "60000/60000 [==============================] - 26s 440us/step - loss: 0.0934 - acc: 0.9704\n",
+            "Epoch 9/10\n",
+            "60000/60000 [==============================] - 26s 428us/step - loss: 0.0839 - acc: 0.9730\n",
+            "Epoch 10/10\n",
+            "60000/60000 [==============================] - 25s 422us/step - loss: 0.0761 - acc: 0.9763\n"
+          ],
+          "name": "stdout"
+        },
+        {
+          "output_type": "execute_result",
+          "data": {
+            "text/plain": [
+              "<keras.callbacks.History at 0x7f0a3c574630>"
+            ]
+          },
+          "metadata": {
+            "tags": []
+          },
+          "execution_count": 203
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "37U7lvJQ9CPa",
+        "colab_type": "code",
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 527
+        },
+        "outputId": "efd751e2-8c7f-4720-e398-3afc7a696827"
+      },
+      "source": [
+        "score = model.evaluate(X_test, Y_test, verbose=0)\n",
+        "print(score)\n",
+        "\n",
+        "y_pred = model.predict(X_test)\n",
+        "print(y_pred[:9])\n",
+        "print(y_test[:9])\n",
+        "\n"
+      ],
+      "execution_count": 205,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "text": [
+            "[0.06379475695071742, 0.9786]\n",
+            "[[1.01830537e-10 3.37126244e-10 8.01395572e-08 2.85547821e-06\n",
+            "  1.99731894e-14 1.01451580e-09 2.82383341e-16 9.99994636e-01\n",
+            "  5.10433518e-09 2.39446240e-06]\n",
+            " [6.78628334e-04 2.51707039e-04 9.99008715e-01 1.52152534e-05\n",
+            "  3.45038065e-09 7.98152229e-08 3.89051238e-05 7.04557549e-12\n",
+            "  6.84564293e-06 7.45348991e-11]\n",
+            " [8.08443656e-06 9.97908831e-01 1.81226860e-04 4.77946858e-04\n",
+            "  1.84316614e-05 4.57915776e-05 1.14716822e-04 9.65904692e-05\n",
+            "  1.12838834e-03 1.99972092e-05]\n",
+            " [9.99971390e-01 2.77847884e-12 2.24083142e-05 5.86859272e-08\n",
+            "  2.12405604e-09 1.42711031e-06 3.78687037e-06 4.26891802e-08\n",
+            "  2.54451624e-08 9.60272587e-07]\n",
+            " [2.02679029e-09 2.87622738e-11 1.45264167e-07 3.54492983e-07\n",
+            "  9.99756753e-01 1.33018702e-07 1.76337892e-06 1.86251071e-07\n",
+            "  3.00692068e-06 2.37763597e-04]\n",
+            " [3.92031922e-07 9.99428928e-01 5.44854811e-05 1.05364597e-04\n",
+            "  9.22885101e-06 1.14129205e-06 2.80830795e-06 2.22219664e-04\n",
+            "  1.65273712e-04 1.01382902e-05]\n",
+            " [1.46714186e-11 1.01961996e-04 8.76857911e-08 1.68873862e-06\n",
+            "  9.89653170e-01 6.34023963e-05 8.98107907e-11 3.71540291e-03\n",
+            "  8.94049765e-04 5.57027152e-03]\n",
+            " [1.57219304e-08 1.55547775e-06 2.70057399e-06 7.14607362e-04\n",
+            "  3.43974261e-03 5.60071894e-05 2.11572182e-08 2.77872605e-04\n",
+            "  3.24693462e-03 9.92260516e-01]\n",
+            " [9.89522778e-06 2.08583259e-13 5.73700675e-07 3.29278947e-07\n",
+            "  3.08566106e-09 9.83946919e-01 5.00299782e-03 6.16479099e-07\n",
+            "  1.10144392e-02 2.43091417e-05]]\n",
+            "[7 2 1 0 4 1 4 9 5]\n"
+          ],
+          "name": "stdout"
+        }
+      ]
+    }
+  ]
+}
