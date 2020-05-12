@@ -42,14 +42,14 @@
 							  SENSOR_SIZE, SENSOR_SIZE);
 			this.ctx.translate(this.width()/2, 0);
 		},
-		drawp: function(ang, x, y, preserve_state=false){
+	        drawp: function(ang, x, y, preserve_state=false){
 			this.clear();
 			if (preserve_state){
 				this.restore();
 				this.save();
 			}
 			this.rotate(ang);
-			this.xlate(x, y);
+		        this.xlate(x, y);
 			this.draw();
 		},
 		rotate: function(th){this.ctx.rotate(Math.PI/180*th);},

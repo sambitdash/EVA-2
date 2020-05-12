@@ -14,8 +14,8 @@ mutable struct DQN
     function DQN(ninput, naction, gamma)
         model = Chain(Dense(ninput, 16, relu),
                       Dense(16, 16, relu),
-                      Dense(16, naction))
-        return new(model, ADAM(), [], gamma, 1, (0, 0, 0), 0)
+                      Dense(16, naction)) 
+        return new(model, ADAM(), [], gamma, 1, (0, 0, 0, 0, 0, 0, 0, 0, 0), 0)
     end
 end
 
@@ -26,13 +26,18 @@ function learn!(dqn::DQN, csignals, nsignals, rewards, actions)
     gs = gradient(ps) do
         couts = dqn.model(csignals)
         coutputs = [couts[actions[i], i] for i = 1:length(actions)]
-        println(size(coutputs))
         nouts = dqn.model(nsignals)
         noutputs = [maximum(nouts[:, i]) for i = 1:size(nouts, 2)]
-        println(size(noutputs))
-        targets  = dqn.gamma*noutputs .+ rewards
+        targets = map(noutputs, rewards) do op, r
+            if abs(r - 1f0) < 1f-6 || abs(r + 1f0) < 1f-6
+                return r
+            else
+                return dqn.gamma*op + r
+            end
+        end
+        
         value = mse(targets, coutputs)
-        println(value)
+        println("mse: ", value)
         return value
     end
     update!(dqn.optim, ps, gs)
@@ -43,13 +48,16 @@ function update!(dqn::DQN, reward, signal)
         dqn.memory, dqn.last_signal, dqn.last_reward, dqn.last_action
 
     push!(memory, (last_signal, signal, last_reward, last_action))
-    if length(memory) > 100
-        batch = rand(memory, 100)
+    lmem = length(memory)
+    lmem > 100000 && popfirst!(memory)
+    if lmem > 128 && rand() > 0.05
+        batch = rand(memory, 128)
 
         csigns, nsigns, rewards, actions = collect(zip(batch...))
        
-        csignals = [ csigns[j][i] for i=1:length(csigns[1]), j=1:length(csigns)]
-        nsignals = [ nsigns[j][i] for i=1:length(nsigns[1]), j=1:length(nsigns)]
+        csignals = [ Float32(csigns[j][i]) for i=1:length(csigns[1]), j=1:length(csigns)]
+        
+        nsignals = [ Float32(nsigns[j][i]) for i=1:length(nsigns[1]), j=1:length(nsigns)]
         rewards  = collect(rewards)
         actions  = collect(actions)
 
