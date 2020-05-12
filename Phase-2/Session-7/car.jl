@@ -10,7 +10,7 @@ struct Car
     function Car()
         img = load("car.png")
         l, w = size(img)
-        sd = 5f0
+        sd = 10f0
         sensors = ((-w/2-sd,  -sd), (0,   -sd), (w/2+sd,  -sd),
                    (-w/2-sd, l+sd), (0,  l+sd), (w/2+sd, l+sd))
         return new(img, sensors)
@@ -83,7 +83,7 @@ episode = 0
 car = Car()
 cs  = CarState(car, bloc, goal, 0f0)
 
-dqn = DQN(9, length(ACTIONS), 0.90)
+dqn = DQN(10, length(ACTIONS), 0.90)
 
 last_reward = 0f0
 payout = 0f0
@@ -141,22 +141,25 @@ function reward(ps::CarState, s::CarState, a)
     global car
     sensors = get_curr_sensors(car, s)
     all(valid_sensor, sensors) || return (-1f0, true)
-    car_on_wall(car, s) && return (-1f-1, false)
-    any(sensor_on_wall, sensors) && return (-1f-2, false)
+    car_on_wall(car, s) && return (-5f-1, false)
+    #any(sensor_on_wall, sensors) && return (-1f-2, false)
     d = dist2(s)
     d < 100f0 && return (1f0, true)
-    return (-3f-3, false)
+    return (-5f-2, false)
 end
 
 function signal(s::CarState)
-    global car
+    global car, l_m, w_m
     sensors = get_curr_sensors(car, s)
     loc = get_curr_loc(s, (0, s.h)) 
     v = s.goal .- loc
-    println(v)
-    v1 = car_on_wall(car, s) ? zeros(Float32, 6) :
-         [!valid_sensor(sensor) || sensor_on_wall(sensor) ? 0f0 : 1f0 for sensor in sensors]
-    return v..., s.ang, v1...
+    v1 = map(sensors) do sensor
+        y, x = round.(Int, sensor)
+        return !(12 <= x <= w_m-12 && 12 <= y <= l_m-12) ? 1f0 :
+            count(roadmap[x-5:x+5, y-5:y+5] .== false)/121f0
+    end
+    println(v, " ", v1)
+    return v..., s.ang, v1..., car_on_wall(car, s) ? 1f0 : 0f0
 end
 
 function eval_action(timer)

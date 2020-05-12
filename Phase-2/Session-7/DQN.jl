@@ -1,6 +1,6 @@
 using Flux
 using Random: rand
-using Flux: mse
+using Flux: mse, cu
 import Flux: update!
 
 mutable struct DQN
@@ -14,8 +14,9 @@ mutable struct DQN
     function DQN(ninput, naction, gamma)
         model = Chain(Dense(ninput, 16, relu),
                       Dense(16, 16, relu),
-                      Dense(16, naction)) 
-        return new(model, ADAM(), [], gamma, 1, (0, 0, 0, 0, 0, 0, 0, 0, 0), 0)
+                      Dense(16, naction)) |> gpu
+        return new(model, ADAM(), [], gamma, 1,
+                   (0, 0, 0, 0, 0, 0, 0, 0, 0, 0), 0)
     end
 end
 
@@ -25,18 +26,18 @@ function learn!(dqn::DQN, csignals, nsignals, rewards, actions)
     ps = params(dqn.model)
     gs = gradient(ps) do
         couts = dqn.model(csignals)
-        coutputs = [couts[actions[i], i] for i = 1:length(actions)]
+        coutputs = gpu([couts[actions[i], i] for i = 1:length(actions)])
         nouts = dqn.model(nsignals)
-        noutputs = [maximum(nouts[:, i]) for i = 1:size(nouts, 2)]
-        targets = map(noutputs, rewards) do op, r
+        noutputs = gpu([maximum(nouts[:, i]) for i = 1:size(nouts, 2)])
+        targets = gpu(map(noutputs, rewards) do op, r
             if abs(r - 1f0) < 1f-6 || abs(r + 1f0) < 1f-6
                 return r
             else
                 return dqn.gamma*op + r
-            end
+            end)
         end
         
-        value = mse(targets, coutputs)
+        value = gpu(mse(targets, coutputs))
         println("mse: ", value)
         return value
     end
@@ -55,11 +56,11 @@ function update!(dqn::DQN, reward, signal)
 
         csigns, nsigns, rewards, actions = collect(zip(batch...))
        
-        csignals = [ Float32(csigns[j][i]) for i=1:length(csigns[1]), j=1:length(csigns)]
+        csignals = gpu([ Float32(csigns[j][i]) for i=1:length(csigns[1]), j=1:length(csigns)])
         
-        nsignals = [ Float32(nsigns[j][i]) for i=1:length(nsigns[1]), j=1:length(nsigns)]
-        rewards  = collect(rewards)
-        actions  = collect(actions)
+        nsignals = gpu([ Float32(nsigns[j][i]) for i=1:length(nsigns[1]), j=1:length(nsigns)])
+        rewards  = gpu(collect(rewards))
+        actions  = gpu(collect(actions))
 
         learn!(dqn, csignals, nsignals, rewards, actions)
         action = select_action(dqn, collect(signal))
