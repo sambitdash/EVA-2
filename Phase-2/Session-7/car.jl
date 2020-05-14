@@ -83,7 +83,7 @@ episode = 0
 car = Car()
 cs  = CarState(car, bloc, goal, 0f0)
 
-dqn = DQN(10, length(ACTIONS), 0.90)
+dqn = DQN{10, length(ACTIONS)}(0.90)
 
 last_reward = 0f0
 payout = 0f0
@@ -197,8 +197,8 @@ function eval_action(timer)
 
         payout = 0.9*payout + r
 
-        println("episode = $episode ", action, " ", ns, " ",
-                d, " lmem: ", length(dqn.memory), " reward:", r, " payout: ", payout)
+        println("episode = $episode ", action, " ", ns, " ", d, " nmem:", dqn.memory.n,
+                " reward:", r, " payout: ", payout)
 
         if isterminal
             update!(dqn, r, signal(ns))
@@ -214,7 +214,7 @@ function eval_action(timer)
         println(ang, " ",  yd)
         @js w carview.drawp($ang, 0, $yd)
     catch e
-        println(e)
+        println(stacktrace())
         throw(e)
     finally
     end
