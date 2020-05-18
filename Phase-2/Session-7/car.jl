@@ -1,6 +1,10 @@
 using FileIO
 using Blink
 using LinearAlgebra
+using BSON: @load, @save
+#using Zygote
+#using CUDAdrv
+#using CuArrays
 
 include("DQN.jl")
 
@@ -25,7 +29,7 @@ struct CarState
     ang::Float32 #Clockwise positive
 end
 
-function CarState(c::Car, loc=(0f0, 0f0), goal=(890f0, 890f0), ang=0f0)
+function CarState(c::Car, loc=(0f0, 0f0), goal=(410f0, 410f0), ang=0f0)
     h, w = size(c.img)
     return CarState(h, w, loc, goal, ang)    
 end
@@ -62,8 +66,8 @@ end
 
 get_curr_sensors(c::Car, s::CarState) = get_curr_loc.(Ref(s), c.sensors)
 
-FWD_SPEED = 500f0                        # Pixels per sec
-BK_SPEED_FACTOR = 5f0                   # Ratio of forward and backward speed
+FWD_SPEED = 200f0                        # Pixels per sec
+BK_SPEED_FACTOR = 10f0                   # Ratio of forward and backward speed
 BK_SPEED  = FWD_SPEED / BK_SPEED_FACTOR  
 ACTION_EVAL_INTERVAL = 10f0/FWD_SPEED     # Average check every 10 fwd pixels
 ACTIONS = (:forward, :left, :right, :back)
@@ -76,17 +80,26 @@ println(l_m, " ", w_m)
 w = Window()
 loadfile(w, joinpath(@__DIR__, "file.html"))
 
-goal = (840f0, 840f0)
+goal = (400f0, 400f0)
 bloc = (50f0, 50f0)
+
 episode = 0
 
 car = Car()
 cs  = CarState(car, bloc, goal, 0f0)
 
-dqn = DQN{10, length(ACTIONS)}(0.90)
+dqn = DQN{10, length(ACTIONS)}(0.99)
+
+#if isfile("model-weights.bson")
+#    @load "model-weights.bson" weights
+#    Flux.loadparams!(dqn.model, weights)
+#end
 
 last_reward = 0f0
 payout = 0f0
+ntime = 0
+episodes = Vector{Tuple{Int, Int, Float32, Float32}}()
+episode_state = :e
 
 inited = false
 tm = time()
@@ -141,11 +154,12 @@ function reward(ps::CarState, s::CarState, a)
     global car
     sensors = get_curr_sensors(car, s)
     all(valid_sensor, sensors) || return (-1f0, true)
-    car_on_wall(car, s) && return (-5f-1, false)
+    car_on_wall(car, s) && return (-0.9f0, false)
     #any(sensor_on_wall, sensors) && return (-1f-2, false)
-    d = dist2(s)
-    d < 100f0 && return (1f0, true)
-    return (-5f-2, false)
+    d, dp = dist2(s), dist2(ps)
+    d < 625f0 && return (1f0, true)
+    d < dp && return (25f-3, false)
+    return (-25f-3, false)
 end
 
 function signal(s::CarState)
@@ -162,26 +176,31 @@ function signal(s::CarState)
     return v..., s.ang, v1..., car_on_wall(car, s) ? 1f0 : 0f0
 end
 
-function eval_action(timer)
-    global inited, cs, car, w, bloc, goal, tm, episode, last_reward, dqn, payout
+function eval_action()
+    global cs, car, w, bloc, goal, tm, episode, last_reward, dqn, payout, ntime
+    global episode_state
 
-    try 
-        if !inited
+    while !dqn.trained
+        if episode_state === :e
             episode += 1
+            ntime = 1
             cs = CarState(car, bloc, goal, 0f0)
             last_reward = 0f0
             payout = 0f0
             @js w carview.drawp(0, $(bloc...), true)
-            inited = true
-            return
+            episode_state = :b
+            continue
         end
 
-        action = ACTIONS[update!(dqn, last_reward, signal(cs))]
+        ntime += 1
+        action = ACTIONS[update!(dqn, last_reward, signal(cs), episode_state)]
         println(action)
+        episode_state = :c
         speed = action == :back ? -BK_SPEED : FWD_SPEED
         tm1 = time()
         dtm = (tm1 - tm)
-        dtm > 20f-3 && (dtm = 20f-3)
+        println(dtm)
+        dtm > 100f-3 && (dtm = 100f-3)
         d = speed*dtm
         tm = tm1
         println("distance: ", d)
@@ -195,15 +214,19 @@ function eval_action(timer)
 
         r, isterminal = reward(cs, ns, action)
 
-        payout = 0.9*payout + r
+        payout = dqn.gamma*payout + r
 
         println("episode = $episode ", action, " ", ns, " ", d, " nmem:", dqn.memory.n,
                 " reward:", r, " payout: ", payout)
 
         if isterminal
-            update!(dqn, r, signal(ns))
-            inited = false
-            return
+            episode_state = :e
+            act = signal(ns)
+            update!(dqn, r, act, episode_state)
+            push!(episodes, (episode, ntime, payout, r))
+            ntime = 0
+            yield()
+            continue
         end
 
         last_reward = r
@@ -213,14 +236,20 @@ function eval_action(timer)
         yd  = (action == :forward || action == :back) ? d : 0
         println(ang, " ",  yd)
         @js w carview.drawp($ang, 0, $yd)
-    catch e
-        println(stacktrace())
-        throw(e)
-    finally
     end
 end
 
-t = Timer(eval_action, 1, interval=ACTION_EVAL_INTERVAL)
-wait(t)
-read(stdin, 1)
-close(t)
+tsk_eval  = @task eval_action()
+tsk_wait  = @task begin
+    v = read(stdin, 1)
+    dqn.trained = true
+    weights = params(dqn.model);
+    @save "model-weights.bson" weights
+end
+
+schedule(tsk_eval)
+schedule(tsk_wait)
+
+wait(tsk_wait)
+
+

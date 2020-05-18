@@ -64,7 +64,7 @@ function make_image(nh, nw; Wd=1, Cd=1)
 end
 
 function build_maze(;fn="maze.png")
-    _, alpha, maze = make_image(8, 8, Wd=10, Cd=100)
+    _, alpha, maze = make_image(4, 4, Wd=10, Cd=100)
     save(fn, maze)
     return alpha
 end

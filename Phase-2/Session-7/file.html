@@ -3,7 +3,7 @@
 	<img id="car_img"  src="car.png"  style="display:none;"/>
   </head>
   <body>
-	<canvas id="canvas" width="890" height="890"
+	<canvas id="canvas" width="450" height="450"
       style="background:url('maze.png')"/>
 	<script>
 	const SENSOR_DIST = 10, SENSOR_SIZE = 2;
@@ -13,7 +13,8 @@
 		height: function(){return this.img.naturalHeight;},
 		width:  function(){return this.img.naturalWidth;},
 		save:   function(){return this.ctx.save();},
-		restore:function(){return this.ctx.restore();},
+	        restore:function(){return this.ctx.restore();},
+	        fillText: function(text, x, y){return this.ctx.fillText(text, x, y);},
 		clear:  function(){
 			this.ctx.translate(-this.width()/2, 0);
 			this.ctx.clearRect(-SENSOR_DIST-2, -SENSOR_DIST-2,
