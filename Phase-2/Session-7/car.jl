@@ -88,7 +88,7 @@ episode = 0
 car = Car()
 cs  = CarState(car, bloc, goal, 0f0)
 
-dqn = DQN{10, length(ACTIONS)}(0.99)
+dqn = DQN{8, length(ACTIONS)}(0.99)
 
 #if isfile("model-weights.bson")
 #    @load "model-weights.bson" weights
@@ -154,12 +154,12 @@ function reward(ps::CarState, s::CarState, a)
     global car
     sensors = get_curr_sensors(car, s)
     all(valid_sensor, sensors) || return (-1f0, true)
-    car_on_wall(car, s) && return (-0.9f0, false)
+    car_on_wall(car, s) && return (-0.75f0, false)
     #any(sensor_on_wall, sensors) && return (-1f-2, false)
     d, dp = dist2(s), dist2(ps)
     d < 625f0 && return (1f0, true)
-    d < dp && return (25f-3, false)
-    return (-25f-3, false)
+    d < dp && return (2f-3, false)
+    return (-1f-3, false)
 end
 
 function signal(s::CarState)
@@ -173,13 +173,14 @@ function signal(s::CarState)
             count(roadmap[x-5:x+5, y-5:y+5] .== false)/121f0
     end
     println(v, " ", v1)
-    return v..., s.ang, v1..., car_on_wall(car, s) ? 1f0 : 0f0
+    return s.ang, v1..., car_on_wall(car, s) ? 1f0 : 0f0
 end
 
 function eval_action()
     global cs, car, w, bloc, goal, tm, episode, last_reward, dqn, payout, ntime
     global episode_state
 
+    try
     while !dqn.trained
         if episode_state === :e
             episode += 1
@@ -236,6 +237,11 @@ function eval_action()
         yd  = (action == :forward || action == :back) ? d : 0
         println(ang, " ",  yd)
         @js w carview.drawp($ang, 0, $yd)
+    end
+    catch(e)
+        println.(stacktrace(catch_backtrace()))
+        println(e)
+        throw(e)
     end
 end
 

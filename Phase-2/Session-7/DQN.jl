@@ -47,6 +47,7 @@ end
 
 mutable struct DQN{NS, NA}
     model
+    modelb
     optim
     memory::ReplayMemory
     gamma::Float32
@@ -54,16 +55,22 @@ mutable struct DQN{NS, NA}
     last_signal::Vector{Float32}
     last_reward::Float32
     trained::Bool
+    update_step::Int
     function DQN{NS, NA}(gamma) where {NS, NA}
-        model = Chain(Dense(NS, 16, relu),
-                      Dense(16, 16, relu),
-                      Dense(16, NA)) |> gpu
+        model  = Chain(Dense(NS, 64, relu),
+                       Dense(64, 64, relu),
+                       Dense(64, NA)) |> gpu
+        modelb = Chain(Dense(NS, 64, relu),
+                       Dense(64, 64, relu),
+                       Dense(64, NA)) |> gpu
         return new(model,
-                   ADAM(0.001, (0.9, 0.9)),
+                   modelb,
+                   ADAM(),
                    ReplayMemory{100000, NS, 2NS+2}(),
                    gamma,
                    1, zeros(Float32, NS), 0f0,
-                   false)
+                   false,
+                   1)
     end
 end
 
@@ -80,7 +87,7 @@ function select_action(dqn::DQN{NS, NA}, s) where {NS, NA}
 end
 
 function learn!(dqn::DQN{NS, NA}, csignals, nsignals, rewards, actionhb) where {NS, NA}
-    model, gamma = dqn.model, dqn.gamma
+    model, modelb, gamma = dqn.model, dqn.modelb, dqn.gamma
     ps = params(model)
     ones_arr = ones(Float32, (1, NA)) |> gpu
     gamma_arr = fill(gamma, (1, NA+1)) |> gpu
@@ -93,7 +100,7 @@ function learn!(dqn::DQN{NS, NA}, csignals, nsignals, rewards, actionhb) where {
         end
     end
     mask = gpu(mask)
-    nouts = model(nsignals)
+    nouts = modelb(nsignals)
     nouts = nouts.*softmax(nouts, dims=1)
     nouts = mask.*nouts
     nouts = vcat(nouts, rewards)
@@ -107,6 +114,10 @@ function learn!(dqn::DQN{NS, NA}, csignals, nsignals, rewards, actionhb) where {
         return value
     end
     update!(dqn.optim, ps, gs)
+    if dqn.update_step % 16 == 0
+        Flux.loadparams!(modelb, ps)
+    end
+    dqn.update_step += 1
 end
 
 function update!(dqn::DQN{NS, NA}, reward, signal, episode=:c) where {NS, NA}
