@@ -116,9 +116,9 @@ function learn!(dqn::DQN{NS, NA}, csignals, nsignals, rewards, actionhb) where {
         return value
     end
     update!(dqn.optim, ps, gs)
-    #if dqn.update_step % 16 == 0
+    if dqn.update_step % 16 == 0
         Flux.loadparams!(modelb, ps)
-    #end
+    end
     dqn.update_step += 1
 end
 
