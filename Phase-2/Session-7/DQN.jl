@@ -3,6 +3,7 @@ using Random: rand
 using Flux: mse, cu
 import Flux: update!
 using StaticArrays
+using LinearAlgebra
 
 mutable struct ReplayMemory{NR, NS, L}
     m::MMatrix{L, NR, Float32}
@@ -109,14 +110,15 @@ function learn!(dqn::DQN{NS, NA}, csignals, nsignals, rewards, actionhb) where {
         couts = model(csignals)
         couts = couts.*actionhb
         coutputs = ones_arr*couts
-        value = mse(targets, coutputs)
-        println("mse: ", value)
+        v1, v2 = mse(targets, coutputs), 10sum(norm, ps)
+        value = v1 + v2
+        println("mse: ", value, " v1: ", v1, " v2: ", v2)
         return value
     end
     update!(dqn.optim, ps, gs)
-    if dqn.update_step % 16 == 0
+    #if dqn.update_step % 16 == 0
         Flux.loadparams!(modelb, ps)
-    end
+    #end
     dqn.update_step += 1
 end
 
