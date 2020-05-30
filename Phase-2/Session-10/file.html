@@ -1,0 +1,67 @@
+<html>
+  <head>
+	<img id="car_img"  src="car.png"  style="display:none;"/>
+  </head>
+  <body>
+	<canvas id="canvas" width="450" height="450"
+      style="background:url('maze.png')"/>
+	<script>
+	const SENSOR_DIST = 10, SENSOR_SIZE = 2;
+	var carview = {
+		ctx: document.getElementById("canvas").getContext("2d"),
+		img: document.getElementById("car_img"),
+		height: function(){return this.img.naturalHeight;},
+		width:  function(){return this.img.naturalWidth;},
+		save:   function(){return this.ctx.save();},
+	        restore:function(){return this.ctx.restore();},
+	        fillText: function(text, x, y){return this.ctx.fillText(text, x, y);},
+		clear:  function(){
+			this.ctx.translate(-this.width()/2, 0);
+			this.ctx.clearRect(-SENSOR_DIST-2, -SENSOR_DIST-2,
+							   this.width()+2*SENSOR_DIST+4,
+							   this.height()+2*SENSOR_DIST+4);
+			this.ctx.translate( this.width()/2, 0);
+		},
+		draw: function(){
+			this.ctx.translate(-this.width()/2, 0);
+			this.ctx.drawImage(this.img, 0, 0);
+			this.ctx.fillRect(-SENSOR_DIST,     -SENSOR_DIST, SENSOR_SIZE,
+							  SENSOR_SIZE);
+			this.ctx.fillRect(this.width()/2-SENSOR_SIZE/2, -SENSOR_DIST,
+							  SENSOR_SIZE, SENSOR_SIZE);
+			this.ctx.fillRect(this.width()+SENSOR_DIST-SENSOR_SIZE,
+							  -SENSOR_DIST,
+							  SENSOR_SIZE, SENSOR_SIZE);
+			this.ctx.fillRect(-SENSOR_DIST,
+							  this.height()+SENSOR_DIST-SENSOR_SIZE,
+							  SENSOR_SIZE, SENSOR_SIZE);
+			this.ctx.fillRect(this.width()/2-SENSOR_SIZE/2,
+							  this.height()+SENSOR_DIST-SENSOR_SIZE,
+							  SENSOR_SIZE, SENSOR_SIZE);
+			this.ctx.fillRect(this.width()+SENSOR_DIST-SENSOR_SIZE,
+							  this.height()+SENSOR_DIST-SENSOR_SIZE,
+							  SENSOR_SIZE, SENSOR_SIZE);
+			this.ctx.translate(this.width()/2, 0);
+		},
+	        drawp: function(ang, x, y, preserve_state=false){
+			this.clear();
+			if (preserve_state){
+				this.restore();
+				this.save();
+			}
+			this.rotate(ang);
+		        this.xlate(x, y);
+			this.draw();
+		},
+		rotate: function(th){this.ctx.rotate(Math.PI/180*th);},
+		xlate: function(x, y){this.ctx.translate(x, y);}
+	};
+
+    window.onload = function() {
+		carview.save();
+		carview.xlate(0, 0);
+		carview.draw();
+	};
+    </script>
+	</body>
+</html>
