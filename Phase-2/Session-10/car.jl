@@ -4,9 +4,6 @@ using LinearAlgebra
 using OffsetArrays: no_offset_view
 using BSON: @load, @save
 using Images
-#using Zygote
-#using CUDAdrv
-#using CuArrays
 
 #include("td3.jl")
 
@@ -54,7 +51,7 @@ function get_curr_loc(s::CarState, v)
     sth, cth, ox, oy = sin(s.ang), cos(s.ang), s.loc[1], s.loc[2]
     return v[1]*cth - v[2]*sth + ox, v[1]*sth + v[2]*cth + oy
 end
-
+#=
 FWD_SPEED = 200f0                        # Pixels per sec
 BK_SPEED_FACTOR = 10f0                   # Ratio of forward and backward speed
 BK_SPEED  = FWD_SPEED / BK_SPEED_FACTOR  
@@ -87,6 +84,7 @@ inited = false
 tm = time()
 
 println(:none, " ", cs)
+=#
 
 function plotLine(f::Function, p1, p2)
     x0, y0 = p1
@@ -126,8 +124,7 @@ function car_on_wall(c::Car, s::CarState)
             plotLine(f, p[3], p[4]) || plotLine(f, p[4], p[1])) 
 end
 
-function reward(ps::CarState, s::CarState, a)
-    global car
+function reward(ps::CarState, s::CarState, car::Car, a)
     sensors = get_curr_sensors(car, s)
     car_on_wall(car, s) && return (-0.9f0, false)
     #any(sensor_on_wall, sensors) && return (-1f-2, false)
@@ -138,7 +135,9 @@ function reward(ps::CarState, s::CarState, a)
 end
 
 function signal(s::CarState)
-    global l_m, w_m
+    roadmap = load("maze.png")
+    l_m, w_m = size(roadmap)
+
     h = s.h
     loc = get_curr_loc(s, (0, h)) 
     v = s.goal .- loc
@@ -160,7 +159,7 @@ function signal(s::CarState)
     
     ang = s.ang
     ang < 0 && (ang += 2*pi)
-    carimg = no_offset_view(imrotate(car.gray, ang, 0.75f0))
+    carimg = no_offset_view(imrotate(Car().gray, ang, 0.75f0))
 
     h, w = size(carimg)
 
@@ -176,6 +175,7 @@ function signal(s::CarState)
     return bkimg
 end
 
+#=
 function eval_action()
     global cs, car, w, bloc, goal, tm, episode, last_reward, payout, ntime
     global episode_state
@@ -254,59 +254,79 @@ schedule(tsk_wait)
 wait(tsk_wait)
 =#
 
+#=
+=#
+=#
+
 using Flux
 
-model = Chain(
-    #=
-    # 80x80 image
-    Conv((3, 3),  1=>16, pad=(1, 1)),
-    BatchNorm(16, relu),
-    MaxPool((2,2)),
-    # 40x40 image
-    Conv((3, 3), 16=>32, pad=(1, 1)),
-    BatchNorm(32, relu),
-    MaxPool((2,2)),
-    # 20x20 image
-    Conv((3, 3), 32=>32, pad=(1, 1)),
-    BatchNorm(32, relu),
-    MaxPool((2,2)),
-    # 10x10 image
-    Conv((3, 3), 32=>32, pad=(1, 1)),
-    BatchNorm(32, relu),
-    MaxPool((2,2)),
-    # 5x5 image
-    Conv((3, 3), 32=>1),
-    MeanPool((3, 3)),
-    flatten,
-    x->tanh.(x)
-    =#
-    flatten,
-    Dense(6400, 10, relu),
-    Dense(10,    1, tanh)
-)
+function test()
+    model = Chain(
+        # 80x80 image
+        Conv((3, 3),  1=>16, pad=(1, 1), relu),
+        #BatchNorm(16, relu),
+        MaxPool((2,2)),
+        # 40x40 image
+        Conv((3, 3), 16=>32, pad=(1, 1), relu),
+        #BatchNorm(32, relu),
+        MaxPool((2,2)),
+        # 20x20 image
+        Conv((3, 3), 32=>32, pad=(1, 1), relu),
+        #BatchNorm(32, relu),
+        MaxPool((2,2)),
+        # 10x10 image
+        Conv((3, 3), 32=>32, pad=(1, 1), relu),
+        #BatchNorm(32, relu),
+        MaxPool((2,2)),
+        # 5x5 image
+        Conv((3, 3), 32=>1),
+        MeanPool((3, 3)),
+        flatten,
+        x->pi*tanh.(x)
+    )
 
-opt = ADAM()
+    opt = ADAM()
 
-cnt = 1
+    cnt = 1
 
-ps = params(model)
-trainX = Array{Float32}(undef, (80, 80, 1, 32))
-trainY = Array{Float32}(undef, (1, 32))
+    pms = params(model)
+    trainX = Array{Float32}(undef, (80, 80, 1, 128))
+    trainY = Array{Float32}(undef, (1, 128))
+    car = Car()
 
-for j=1:10
-    println("batch: ", j)
-    for i=1:32
+    for j=1:300
+        println("batch: ", j)
+        
+        for i=1:128
+            th = (rand() - 5f-1)*2pi
+            cs  = CarState(car, (50, 50), (400, 400), th)
+            img = signal(cs)
+            trainX[:, :, :, i] = img
+            trainY[1, i] = th
+        end
+        
+        # println(size(trainX))
+        gs = gradient(pms) do
+            y = model(trainX)
+            v1 = Flux.mse(y, trainY)
+            v2 = 1f-3*dot(pms, pms)
+            println("mse: ", v1, " ", v2, " ", v1+v2)
+            return v1 + v2
+        end
+        Flux.update!(opt, pms, gs)
+    end
+
+    for i=1:16
         th = (rand() - 5f-1)*2pi
-        cs  = CarState(car, bloc, goal, th)
+        cs  = CarState(car, (50, 50), (400, 400), th)
         img = signal(cs)
-        println(size(img))
-        trainX[:, :, 1, i] = img
+        trainX[:, :, :, i] = img
         trainY[1, i] = th
     end
 
-    gs = gradient(ps) do
-        y = model(trainX)
-        return mse(y, trainY)
+    y = model(trainX)
+
+    for (a, b) in zip(y, trainY)
+        println(a, " ", b)
     end
-    update!(opt, ps, gs)
 end
